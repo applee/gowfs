@@ -1,6 +1,9 @@
 package gowfs
 
-import "fmt"
+import (
+	"fmt"
+	"sort"
+)
 
 type (
 	OperationParams struct {
@@ -73,4 +76,36 @@ type (
 // Implementation of error type.  Returns string representation of RemoteException
 func (re *RemoteException) Error() string {
 	return fmt.Sprintf("RemoteException: %v [%v]\n[%v]\n", re.Exception, re.JavaClassName, re.Message)
+}
+
+// By is the type of a "less" function that defines the ordering of its FileStatus arguments.
+type By func(f1, f2 *FileStatus) bool
+
+// Sort is a method on the function type By, that sorts the argument slice according to the function.
+func (by By) Sort(fs []FileStatus) {
+	fss := &FileStatusSorter{
+		fs: fs,
+		by: by,
+	}
+	sort.Sort(fss)
+}
+
+type FileStatusSorter struct {
+	fs []FileStatus
+	by By
+}
+
+// Len is part of sort.Interface.
+func (s *FileStatusSorter) Len() int {
+	return len(s.fs)
+}
+
+// Swap is part of sort.Interface.
+func (s *FileStatusSorter) Swap(i, j int) {
+	s.fs[i], s.fs[j] = s.fs[j], s.fs[i]
+}
+
+// Less is part of sort.Interface. It is implemented by calling the "by" closure in the sorter.
+func (s *FileStatusSorter) Less(i, j int) bool {
+	return s.by(&s.fs[i], &s.fs[j])
 }
