@@ -19,6 +19,7 @@ type (
 
 	Response struct {
 		Boolean         bool             `json:"boolean"`
+		Long            int64            `json:"long"`
 		FileStatus      *FileStatus      `json:",omitempty"`
 		FileStatuses    *FileStatuses    `json:",omitempty"`
 		FileChecksum    *FileChecksum    `json:",omitempty"`

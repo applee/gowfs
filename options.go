@@ -9,14 +9,23 @@ import (
 type ClientOption func(*clientOptions)
 
 type clientOptions struct {
-	user      string
-	krb5cl    *gokrb5cl.Client
+	// hdfs user name
+	user string
+
+	// kerberos client
+	krb5cl *gokrb5cl.Client
+
+	// auto generate and renew delegation token
+	autoGenToken bool
+
+	// http transport
 	transport *http.Transport
 }
 
-func WithKerberos(cl *gokrb5cl.Client) ClientOption {
+func WithKerberos(cl *gokrb5cl.Client, autoGenToken bool) ClientOption {
 	return func(o *clientOptions) {
 		o.krb5cl = cl
+		o.autoGenToken = autoGenToken
 	}
 }
 

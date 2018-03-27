@@ -49,9 +49,10 @@ func defaultTransport() *http.Transport {
 }
 
 type Client struct {
+	Token string
+
 	nns    []string
 	curnn  string
-	token  string
 	httpcl *http.Client
 	opts   clientOptions
 }
@@ -91,11 +92,52 @@ func NewClient(nameNodes []string, opts ...ClientOption) (*Client, error) {
 		if err != nil {
 			return nil, err
 		}
-		if token, err := cl.GetDelegationToken(); err == nil {
-			cl.token = token
+		if cl.opts.autoGenToken {
+			if cl.Token, err = cl.GetDelegationToken(); err != nil {
+				return nil, err
+			}
+			go cl.renewToken()
 		}
 	}
 	return cl, err
+}
+
+func (cl *Client) renewToken() {
+	var (
+		retry   int
+		backoff = time.Second * 10
+		ahead   = time.Minute * 30
+		timer   *time.Timer
+	)
+	for {
+		d, err := cl.getTokenExpiration()
+		if err != nil {
+			if retry > 3 {
+				break
+			}
+			time.Sleep(backoff * time.Duration(retry))
+			continue
+		}
+		if timer == nil {
+			timer = time.NewTimer(d - ahead)
+		} else {
+			timer.Reset(d - ahead)
+		}
+		<-timer.C
+	}
+}
+
+func (cl *Client) getTokenExpiration() (d time.Duration, err error) {
+	var exp int64
+	exp, err = cl.RenewDelegationToken()
+	if err != nil {
+		return 0, err
+	}
+	d = time.Unix(exp/1000, 0).Sub(time.Now())
+	if d <= 0 {
+		d = time.Hour
+	}
+	return d, nil
 }
 
 func (cl *Client) resolveNameNodes() {

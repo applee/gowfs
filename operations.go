@@ -44,6 +44,7 @@ func init() {
 	opURLs[OP_LISTSTATUS] = template.Must(template.New("").Parse("http://{{.Addr}}/webhdfs/v1/{{.Path}}/?op={{.Op}}{{if .Delegation}}&delegation={{.Delegation}}{{end}}{{if .UserName}}&user.name={{.UserName}}{{end}}"))
 	opURLs[OP_GETFILECHECKSUM] = template.Must(template.New("").Parse("http://{{.Addr}}/webhdfs/v1/{{.Path}}/?op={{.Op}}{{if .Delegation}}&delegation={{.Delegation}}{{end}}{{if .UserName}}&user.name={{.UserName}}{{end}}"))
 	opURLs[OP_GETDELEGATIONTOKEN] = template.Must(template.New("").Parse("http://{{.Addr}}/webhdfs/v1/?op={{.Op}}{{if .UserName}}&renewer={{.UserName}}{{end}}"))
+	opURLs[OP_RENEWDELEGATIONTOKEN] = template.Must(template.New("").Parse("http://{{.Addr}}/webhdfs/v1/?op={{.Op}}&token={{.Delegation}}"))
 }
 
 func (cl *Client) getOperationURL(params *OperationParams) (string, error) {
@@ -51,8 +52,8 @@ func (cl *Client) getOperationURL(params *OperationParams) (string, error) {
 	if !ok {
 		return "", errInvalidOperation
 	}
-	if cl.token != "" {
-		params.Delegation = cl.token
+	if cl.opts.krb5cl != nil {
+		params.Delegation = cl.Token
 	} else if cl.opts.user != "" {
 		params.UserName = cl.opts.user
 	}
@@ -92,6 +93,28 @@ func (cl *Client) GetDelegationToken() (token string, err error) {
 		return
 	}
 	return resp.Token.UrlString, err
+}
+
+func (cl *Client) RenewDelegationToken() (expiration int64, err error) {
+	url, err := cl.getOperationURL(&OperationParams{
+		Op: OP_RENEWDELEGATIONTOKEN,
+	})
+	if err != nil {
+		return
+	}
+	req, _ := http.NewRequest("PUT", url, nil)
+	if cl.opts.krb5cl != nil {
+		cl.opts.krb5cl.SetSPNEGOHeader(req, "")
+	}
+	resp, err := cl.doJSONRequest(req)
+	if err != nil {
+		return
+	}
+	if resp.Long == 0 {
+		err = errInvalidResponse
+		return
+	}
+	return resp.Long, err
 }
 
 func (cl *Client) Open(path string, offset, length uint64, bufferSize uint32) (io.ReadCloser, error) {
