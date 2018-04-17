@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"io/ioutil"
+	"math/rand"
 	"net"
 	"net/http"
 	"runtime"
@@ -104,24 +105,33 @@ func NewClient(nameNodes []string, opts ...ClientOption) (*Client, error) {
 
 func (cl *Client) renewToken() {
 	var (
-		retry   int
-		backoff = time.Second * 10
-		ahead   = time.Minute * 30
-		timer   *time.Timer
+		retry    int
+		backoff  = time.Second * 10
+		fixAhead = time.Minute * 30
+		timer    *time.Timer
 	)
 	for {
 		d, err := cl.getTokenExpiration()
 		if err != nil {
 			if retry > 3 {
-				break
+				if cl.Token, err = cl.GetDelegationToken(); err != nil {
+					return
+				}
+				retry = 0
+				continue
 			}
 			time.Sleep(backoff * time.Duration(retry))
+			retry++
 			continue
 		}
+		r := time.Duration(rand.Int63n(int64(time.Minute * 10)))
+		if d-fixAhead-r > 0 {
+			d = d - fixAhead - r
+		}
 		if timer == nil {
-			timer = time.NewTimer(d - ahead)
+			timer = time.NewTimer(d)
 		} else {
-			timer.Reset(d - ahead)
+			timer.Reset(d)
 		}
 		<-timer.C
 	}
