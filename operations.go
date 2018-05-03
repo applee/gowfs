@@ -57,6 +57,9 @@ func (cl *Client) getOperationURL(params *OperationParams) (string, error) {
 	} else if cl.opts.user != "" {
 		params.UserName = cl.opts.user
 	}
+	if len(cl.nns) > 1 {
+		cl.resolveNameNodes()
+	}
 	params.Addr = cl.curnn
 
 	var b strings.Builder

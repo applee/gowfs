@@ -151,6 +151,7 @@ func (cl *Client) getTokenExpiration() (d time.Duration, err error) {
 }
 
 func (cl *Client) resolveNameNodes() {
+	cl.curnn = ""
 	for _, nn := range cl.nns {
 		url := fmt.Sprintf(JMX_URL, nn)
 		resp, err := cl.httpcl.Get(url)
